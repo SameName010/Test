@@ -1,0 +1,126 @@
+-- Auto Hop Server Low Players 1-2 Blox Fruits
+-- nó có thể không hoạt động hop sever Players 1-2 nếu vào giời cao điểm
+--Text + Auto Copy JobId cũ + mới
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+local PlaceID = game.PlaceId
+local JobID = game.JobId
+
+-- GUI chữ kéo được
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ServerHopHueShiftUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+local Label = Instance.new("TextButton")
+Label.Size = UDim2.new(0, 300, 0, 40)
+Label.Position = UDim2.new(0.5, -150, 0, 50)
+Label.BackgroundTransparency = 0.3
+Label.BackgroundColor3 = Color3.fromRGB(0,0,0)
+Label.Text = "Preparing..."
+Label.Font = Enum.Font.GothamBold
+Label.TextSize = 18
+Label.TextScaled = true
+Label.TextWrapped = true
+Label.Active = true
+Label.Draggable = true
+Label.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = Label
+
+-- Hue Shift Rainbow function
+local function HSVToRGB(h, s, v)
+    local r, g, b
+    local i = math.floor(h * 6)
+    local f = h * 6 - i
+    local p = v * (1 - s)
+    local q = v * (1 - f * s)
+    local t = v * (1 - (1 - f) * s)
+    i = i % 6
+    if i == 0 then r, g, b = v, t, p
+    elseif i == 1 then r, g, b = q, v, p
+    elseif i == 2 then r, g, b = p, v, t
+    elseif i == 3 then r, g, b = p, q, v
+    elseif i == 4 then r, g, b = t, p, v
+    elseif i == 5 then r, g, b = v, p, q
+    end
+    return Color3.new(r, g, b)
+end
+
+-- Animate hue shift
+spawn(function()
+    local hue = 0
+    while true do
+        Label.TextColor3 = HSVToRGB(hue, 1, 1)
+        hue = hue + 0.01
+        if hue > 1 then hue = 0 end
+        task.wait(0.05)
+    end
+end)
+
+-- Hop count
+local HopCount = 0
+
+local function GetServers()
+    local Servers = {}
+    local cursor = ""
+    repeat
+        local success, result = pcall(function()
+            local url = "https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100"..(cursor ~= "" and "&cursor="..cursor or "")
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+        if success and result and result.data then
+            for _, server in pairs(result.data) do
+                if server.playing >= 1 and server.playing <= 2 and server.id ~= JobID then
+                    table.insert(Servers, server.id)
+                end
+            end
+            cursor = result.nextPageCursor or ""
+        else
+            break
+        end
+    until cursor == "" or not cursor
+    return Servers
+end
+
+-- Auto copy JobId
+local function CopyJobId(jobId, labelText)
+    if setclipboard then
+        setclipboard(jobId)
+    end
+    print(labelText .. "\n" .. jobId) -- log ra console để kiểm tra
+end
+
+local function Hop()
+    while true do
+        HopCount = HopCount + 1
+        Label.Text = "Tìm server 1-2 người... Lần: "..HopCount
+
+        -- Copy JobId server hiện tại trước khi hop
+        CopyJobId(JobID, "Server cũ")
+
+        local servers = GetServers()
+        if #servers > 0 then
+            local chosen = servers[math.random(1, #servers)]
+            Label.Text = "Đang hop server: "..chosen.." (Lần: "..HopCount..")"
+
+            -- Copy JobId server mới đang hop
+            CopyJobId(chosen, "Server đang hop")
+
+            TeleportService:TeleportToPlaceInstance(PlaceID, chosen, Player)
+            break
+        else
+            Label.Text = "Không tìm thấy server 1-2 người, thử lại sau 3s... Lần: "..HopCount
+            task.wait(3)
+        end
+    end
+end
+
+Hop()
